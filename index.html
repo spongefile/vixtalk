@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIX / VVIX Reading</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #11161d;
+    --line: #232b35;
+    --ink: #d8dee6;
+    --ink-dim: #7c8794;
+    --mono: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+    --serif: 'Source Serif 4', 'Georgia', serif;
+    --calm: #4f9d6e;
+    --watch: #c9a227;
+    --stress: #c2553a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.55;
+    padding: 48px 20px 80px;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 16px;
+    margin-bottom: 36px;
+  }
+
+  .title {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+
+  .timestamp {
+    font-size: 12px;
+    color: var(--ink-dim);
+    text-align: right;
+  }
+
+  .metric-block {
+    margin-bottom: 30px;
+  }
+
+  .metric-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+
+  .metric-label {
+    font-family: var(--serif);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-dim);
+    width: 90px;
+    flex-shrink: 0;
+  }
+
+  .metric-value {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--ink);
+    min-width: 90px;
+  }
+
+  .metric-read {
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+
+  .gauge-track {
+    position: relative;
+    height: 6px;
+    background: var(--line);
+    border-radius: 3px;
+    margin: 10px 0 4px;
+    overflow: hidden;
+  }
+
+  .gauge-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .gauge-marker {
+    position: absolute;
+    top: -3px;
+    width: 2px;
+    height: 12px;
+    background: var(--ink);
+    border-radius: 1px;
+  }
+
+  .gauge-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--ink-dim);
+    margin-top: 2px;
+  }
+
+  .ratio-line {
+    font-size: 13px;
+    color: var(--ink-dim);
+    padding: 14px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    margin: 28px 0;
+  }
+
+  .ratio-line strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .analyst-note {
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--ink);
+    padding-left: 16px;
+    border-left: 2px solid var(--line);
+  }
+
+  .analyst-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-dim);
+    margin-bottom: 10px;
+  }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--ink-dim);
+  }
+
+  .error-box {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--stress);
+    padding: 20px;
+    border: 1px solid var(--stress);
+    border-radius: 4px;
+  }
+
+  .loading {
+    color: var(--ink-dim);
+    font-size: 13px;
+  }
+
+  @media (max-width: 480px) {
+    .metric-value { font-size: 26px; }
+    .metric-label { width: 70px; font-size: 11px; }
+    header { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .timestamp { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">VIX / VVIX</div>
+    <div class="timestamp" id="timestamp">loading…</div>
+  </header>
+
+  <div id="content" class="loading">Fetching latest reading…</div>
+
+  <footer>
+    Data: CBOE indices via Yahoo Finance, daily close. Refreshed on a schedule, not live. For situational awareness, not execution timing.
+  </footer>
+</div>
+
+<script>
+  // VIX/VVIX band ranges, mirrored from the Python script, used here only
+  // to position the gauge marker -- the text itself always comes from the
+  // JSON, never recomputed client-side.
+  const VIX_RANGE = [0, 40];
+  const VVIX_RANGE = [60, 160];
+
+  function clampPct(value, [min, max]) {
+    return Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+  }
+
+  function colorForRead(read) {
+    const r = read.toLowerCase();
+    if (r.includes('low') || r.includes('calm') || r.includes('normal') || r.includes('benign')) return 'var(--calm)';
+    if (r.includes('elevated') || r.includes('moderate')) return 'var(--watch)';
+    return 'var(--stress)';
+  }
+
+  function renderGauge(value, read, range) {
+    const pct = clampPct(value, range);
+    const color = colorForRead(read);
+    return `
+      <div class="gauge-track">
+        <div class="gauge-fill" style="width:${pct}%; background:${color};"></div>
+        <div class="gauge-marker" style="left:calc(${pct}% - 1px);"></div>
+      </div>
+      <div class="gauge-scale"><span>${range[0]}</span><span>${range[1]}</span></div>
+    `;
+  }
+
+  async function load() {
+    const contentEl = document.getElementById('content');
+    const tsEl = document.getElementById('timestamp');
+
+    try {
+      const res = await fetch('data/latest.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Could not load data file');
+      const d = await res.json();
+
+      if (d.error) {
+        contentEl.innerHTML = `<div class="error-box">Last update failed: ${d.error}</div>`;
+        tsEl.textContent = d.timestamp_utc || '';
+        return;
+      }
+
+      tsEl.textContent = `as of ${d.vix_as_of} · updated ${d.timestamp_utc}`;
+
+      contentEl.innerHTML = `
+        <div class="metric-block">
+          <div class="metric-row">
+            <span class="metric-label">VIX</span>
+            <span class="metric-value">${d.vix.toFixed(2)}</span>
+          </div>
+          <div class="metric-read">${d.vix_read}</div>
+          ${renderGauge(d.vix, d.vix_read, VIX_RANGE)}
+        </div>
+
+        <div class="metric-block">
+          <div class="metric-row">
+            <span class="metric-label">VVIX</span>
+            <span class="metric-value">${d.vvix.toFixed(2)}</span>
+          </div>
+          <div class="metric-read">${d.vvix_read}</div>
+          ${renderGauge(d.vvix, d.vvix_read, VVIX_RANGE)}
+        </div>
+
+        <div class="ratio-line">
+          VVIX/VIX ratio: <strong>${d.ratio.toFixed(2)}</strong> — ${d.ratio_read}
+        </div>
+
+        <div class="analyst-label">Combined read</div>
+        <div class="analyst-note">${d.combined_read}</div>
+      `;
+    } catch (err) {
+      contentEl.innerHTML = `<div class="error-box">Couldn't load the latest reading. ${err.message}</div>`;
+      tsEl.textContent = '';
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>

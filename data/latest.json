@@ -1,0 +1,13 @@
+{
+  "vix": 17.42,
+  "vix_read": "moderate \u2014 average historical level, no particular stress",
+  "vvix": 96.8,
+  "vvix_read": "elevated \u2014 meaningful uncertainty about how much VIX could move",
+  "ratio": 5.56,
+  "ratio_read": "normal range",
+  "combined_read": "No strong signal either way -- both measures are in unremarkable middle ranges.",
+  "timestamp_utc": "2026-06-17 08:40:07 UTC",
+  "vix_as_of": "2026-06-16",
+  "vvix_as_of": "2026-06-16",
+  "data_note": "Yahoo Finance daily close, not live tick data."
+}
