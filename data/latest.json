@@ -23,5 +23,16 @@
   "timestamp_utc": "2026-06-17 18:49:59 UTC",
   "vix_as_of": "2026-06-16",
   "vvix_as_of": "2026-06-16",
-  "data_note": "Yahoo Finance daily close, not live tick data."
+  "data_note": "Yahoo Finance daily close, not live tick data.",
+  "curve": {
+    "available": true,
+    "y2": 4.15,
+    "y2_as_of": "2026-06-16",
+    "y10": 4.32,
+    "y10_as_of": "2026-06-16",
+    "spread_bp": 17,
+    "inverted": false,
+    "prev_available": false,
+    "regime_text": "No previous reading on file yet \u2014 can't classify a flattener/steepener move until there's a second data point to compare against. Will be available from the next update onward."
+  }
 }
