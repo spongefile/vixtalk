@@ -96,8 +96,8 @@
     height: 6px;
     background: var(--line);
     border-radius: 3px;
-    margin: 10px 0 4px;
-    overflow: hidden;
+    margin: 10px 0 22px;
+    overflow: visible;
   }
 
   .gauge-fill {
@@ -107,6 +107,8 @@
     height: 100%;
     border-radius: 3px;
     transition: width 0.4s ease;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .gauge-marker {
@@ -116,14 +118,33 @@
     height: 12px;
     background: var(--ink);
     border-radius: 1px;
+    z-index: 2;
   }
 
-  .gauge-scale {
-    display: flex;
-    justify-content: space-between;
-    font-size: 10px;
+  .gauge-tick {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    height: 100%;
+    background: rgba(13, 17, 23, 0.55);
+    z-index: 1;
+  }
+
+  .gauge-tick-label {
+    position: absolute;
+    top: 10px;
+    font-size: 9px;
     color: var(--ink-dim);
-    margin-top: 2px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+
+  .gauge-endpoint-label {
+    position: absolute;
+    top: 10px;
+    font-size: 9px;
+    color: var(--ink-dim);
+    opacity: 0.6;
   }
 
   .ratio-line {
@@ -220,15 +241,28 @@
     return 'var(--stress)';
   }
 
-  function renderGauge(value, read, range) {
+  function renderGauge(value, read, range, thresholds) {
     const pct = clampPct(value, range);
     const color = colorForRead(read);
+
+    const ticks = (thresholds || [])
+      .filter(t => t > range[0] && t < range[1])
+      .map(t => {
+        const tickPct = clampPct(t, range);
+        return `
+          <div class="gauge-tick" style="left:${tickPct}%;"></div>
+          <div class="gauge-tick-label" style="left:${tickPct}%;">${t}</div>
+        `;
+      }).join('');
+
     return `
       <div class="gauge-track">
         <div class="gauge-fill" style="width:${pct}%; background:${color};"></div>
+        ${ticks}
         <div class="gauge-marker" style="left:calc(${pct}% - 1px);"></div>
+        <div class="gauge-endpoint-label" style="left:0;">${range[0]}</div>
+        <div class="gauge-endpoint-label" style="right:0;">${range[1]}</div>
       </div>
-      <div class="gauge-scale"><span>${range[0]}</span><span>${range[1]}</span></div>
     `;
   }
 
@@ -256,7 +290,7 @@
             <span class="metric-value">${d.vix.toFixed(2)}</span>
           </div>
           <div class="metric-read">${d.vix_read}</div>
-          ${renderGauge(d.vix, d.vix_read, VIX_RANGE)}
+          ${renderGauge(d.vix, d.vix_read, VIX_RANGE, d.vix_thresholds)}
         </div>
 
         <div class="metric-block">
@@ -265,7 +299,7 @@
             <span class="metric-value">${d.vvix.toFixed(2)}</span>
           </div>
           <div class="metric-read">${d.vvix_read}</div>
-          ${renderGauge(d.vvix, d.vvix_read, VVIX_RANGE)}
+          ${renderGauge(d.vvix, d.vvix_read, VVIX_RANGE, d.vvix_thresholds)}
         </div>
 
         <div class="ratio-line">
