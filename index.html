@@ -16,6 +16,9 @@
     --calm: #4f9d6e;
     --watch: #c9a227;
     --stress: #c2553a;
+    --calm-bg: rgba(79, 157, 110, 0.12);
+    --watch-bg: rgba(201, 162, 39, 0.12);
+    --stress-bg: rgba(194, 85, 58, 0.12);
   }
 
   * { box-sizing: border-box; }
@@ -187,6 +190,71 @@
     color: var(--ink-dim);
   }
 
+  .section-break {
+    border-top: 1px solid var(--line);
+    margin: 36px 0 24px;
+    padding-top: 28px;
+  }
+
+  .section-title {
+    font-family: var(--serif);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-dim);
+    margin-bottom: 16px;
+  }
+
+  .curve-row {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .curve-stat .curve-stat-label {
+    font-family: var(--serif);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-dim);
+    margin-bottom: 2px;
+  }
+
+  .curve-stat .curve-stat-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .regime-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-bottom: 14px;
+    border: 1px solid;
+  }
+
+  .badge-bear { color: var(--stress); background: var(--stress-bg); border-color: var(--stress); }
+  .badge-bull { color: var(--calm); background: var(--calm-bg); border-color: var(--calm); }
+  .badge-neutral { color: var(--watch); background: var(--watch-bg); border-color: var(--watch); }
+
+  .curve-delta {
+    font-size: 13px;
+    color: var(--ink-dim);
+    margin-bottom: 16px;
+  }
+
+  .curve-note {
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+
   .error-box {
     font-family: var(--serif);
     font-size: 15px;
@@ -217,6 +285,7 @@
   </header>
 
   <div id="content" class="loading">Fetching latest reading…</div>
+  <div id="curve-content"></div>
 
   <footer>
     Data: CBOE indices via Yahoo Finance, daily close. Refreshed on a schedule, not live. For situational awareness, not execution timing.
@@ -266,8 +335,96 @@
     `;
   }
 
+  function badgeClassForRegime(regime) {
+    if (!regime) return 'badge-neutral';
+    if (regime.startsWith('bear')) return 'badge-bear';
+    if (regime.startsWith('bull')) return 'badge-bull';
+    return 'badge-neutral'; // no_clear_regime
+  }
+
+  function regimeLabel(regime) {
+    if (!regime) return '';
+    return regime.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  function renderCurveSection(curve) {
+    // Tolerate missing/old-shaped JSON (e.g. cached data from before this
+    // feature existed) by rendering nothing rather than throwing.
+    if (!curve) return '';
+
+    if (!curve.available) {
+      return `
+        <div class="section-break">
+          <div class="section-title">Yield curve</div>
+          <div class="curve-note">Unavailable — ${curve.error || 'unknown error'}</div>
+        </div>
+      `;
+    }
+
+    const spreadLabel = curve.inverted ? 'inverted' : 'normal';
+
+    if (!curve.prev_available) {
+      return `
+        <div class="section-break">
+          <div class="section-title">Yield curve</div>
+          <div class="curve-row">
+            <div class="curve-stat">
+              <div class="curve-stat-label">2Y</div>
+              <div class="curve-stat-value">${curve.y2.toFixed(2)}%</div>
+            </div>
+            <div class="curve-stat">
+              <div class="curve-stat-label">10Y</div>
+              <div class="curve-stat-value">${curve.y10.toFixed(2)}%</div>
+            </div>
+            <div class="curve-stat">
+              <div class="curve-stat-label">2s10s</div>
+              <div class="curve-stat-value">${curve.spread_bp >= 0 ? '+' : ''}${curve.spread_bp.toFixed(0)}bp</div>
+            </div>
+          </div>
+          <div class="curve-note">${curve.regime_text}</div>
+        </div>
+      `;
+    }
+
+    const badgeClass = badgeClassForRegime(curve.regime);
+
+    return `
+      <div class="section-break">
+        <div class="section-title">Yield curve</div>
+        <div class="curve-row">
+          <div class="curve-stat">
+            <div class="curve-stat-label">2Y</div>
+            <div class="curve-stat-value">${curve.y2.toFixed(2)}%</div>
+          </div>
+          <div class="curve-stat">
+            <div class="curve-stat-label">10Y</div>
+            <div class="curve-stat-value">${curve.y10.toFixed(2)}%</div>
+          </div>
+          <div class="curve-stat">
+            <div class="curve-stat-label">2s10s</div>
+            <div class="curve-stat-value">${curve.spread_bp >= 0 ? '+' : ''}${curve.spread_bp.toFixed(0)}bp</div>
+            <div class="curve-stat-label" style="text-transform:none; letter-spacing:0; margin-top:2px;">${spreadLabel}</div>
+          </div>
+        </div>
+
+        <div class="regime-badge ${badgeClass}">
+          ${regimeLabel(curve.regime)}
+        </div>
+
+        <div class="curve-delta">
+          Since ${curve.since_date}: 2Y ${curve.d2_bp >= 0 ? '+' : ''}${curve.d2_bp.toFixed(0)}bp ·
+          10Y ${curve.d10_bp >= 0 ? '+' : ''}${curve.d10_bp.toFixed(0)}bp ·
+          spread ${curve.spread_change_bp >= 0 ? '+' : ''}${curve.spread_change_bp.toFixed(0)}bp
+        </div>
+
+        <div class="analyst-note">${curve.regime_text}</div>
+      </div>
+    `;
+  }
+
   async function load() {
     const contentEl = document.getElementById('content');
+    const curveEl = document.getElementById('curve-content');
     const tsEl = document.getElementById('timestamp');
 
     try {
@@ -277,6 +434,7 @@
 
       if (d.error) {
         contentEl.innerHTML = `<div class="error-box">Last update failed: ${d.error}</div>`;
+        curveEl.innerHTML = renderCurveSection(d.curve);
         tsEl.textContent = d.timestamp_utc || '';
         return;
       }
@@ -309,6 +467,8 @@
         <div class="analyst-label">Combined read</div>
         <div class="analyst-note">${d.combined_read}</div>
       `;
+
+      curveEl.innerHTML = renderCurveSection(d.curve);
     } catch (err) {
       contentEl.innerHTML = `<div class="error-box">Couldn't load the latest reading. ${err.message}</div>`;
       tsEl.textContent = '';
