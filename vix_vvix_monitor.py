@@ -78,6 +78,11 @@ def ratio_read_for(vix, vvix):
     return ratio, "high — market paying up for convexity; often seen when current calm is viewed as fragile"
 
 
+def finite_thresholds(bands):
+    """Extract just the finite threshold values from a bands list, for charting."""
+    return [t for t, _ in bands if t != float("inf")]
+
+
 def band_lookup(value, bands):
     for threshold, label in bands:
         if value < threshold:
@@ -145,8 +150,10 @@ def interpret(vix, vvix):
     return {
         "vix": round(vix, 2),
         "vix_read": vix_read,
+        "vix_thresholds": finite_thresholds(VIX_BANDS),
         "vvix": round(vvix, 2),
         "vvix_read": vvix_read,
+        "vvix_thresholds": finite_thresholds(VVIX_BANDS),
         "ratio": round(ratio, 2),
         "ratio_read": ratio_read,
         "combined_read": combined,
